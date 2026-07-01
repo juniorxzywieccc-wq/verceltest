@@ -28,7 +28,16 @@ function shiftDate(iso: string, days: number): string {
 
 export default function TreningClient() {
   const [selectedDate, setSelectedDate] = useState<string>(todayISO());
-  const dbSession = useLiveQuery(() => db.sessions.get(selectedDate), [selectedDate]);
+  // IMPORTANT: db.sessions.get() resolves to `undefined` both while dexie-react-hooks
+  // is still loading AND when there simply is no saved session for that date (the normal
+  // case for any day you haven't saved yet). Those two states are indistinguishable if we
+  // return `undefined` directly, so the effect below would think "still loading" forever
+  // and the page would get stuck on "Ładowanie…". We use `null` as an explicit
+  // "loaded, but nothing there" sentinel so it stays different from "not loaded yet".
+  const dbSession = useLiveQuery(
+    async () => (await db.sessions.get(selectedDate)) ?? null,
+    [selectedDate]
+  );
   const allSessions = useLiveQuery(() => db.sessions.toArray(), []) ?? [];
   const planDays = useLiveQuery(() => db.planDays.orderBy("order").toArray(), []) ?? [];
   const settings = useSettings();
@@ -38,10 +47,10 @@ export default function TreningClient() {
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
   useEffect(() => {
-    if (dbSession === undefined) return;
+    if (dbSession === undefined) return; // still loading from IndexedDB
     const key = selectedDate;
     if (loadedKey === key) return;
-    setDraft(dbSession ?? emptySession(selectedDate));
+    setDraft(dbSession ?? emptySession(selectedDate)); // dbSession is null when no session was saved yet
     setLoadedKey(key);
   }, [dbSession, selectedDate, loadedKey]);
 
