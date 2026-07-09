@@ -6,7 +6,7 @@ import NumberField from "@/components/NumberField";
 
 interface Props {
   muscleGroups: string[];
-  onAdd: (name: string, muscleGroup: string, sets: number, reps: number) => void;
+  onAdd: (name: string, muscleGroup: string, sets: number, reps: number, weight: number) => void;
   onAddMuscleGroup: (group: string) => void;
 }
 
@@ -16,6 +16,7 @@ export default function AddPlanExerciseForm({ muscleGroups, onAdd, onAddMuscleGr
   const [group, setGroup] = useState(muscleGroups[0] ?? "Klata");
   const [sets, setSets] = useState(3);
   const [reps, setReps] = useState(10);
+  const [weight, setWeight] = useState(0);
   const [newGroup, setNewGroup] = useState("");
   const [addingGroup, setAddingGroup] = useState(false);
 
@@ -23,6 +24,7 @@ export default function AddPlanExerciseForm({ muscleGroups, onAdd, onAddMuscleGr
     setName("");
     setSets(3);
     setReps(10);
+    setWeight(0);
     setNewGroup("");
     setAddingGroup(false);
     setOpen(false);
@@ -36,7 +38,7 @@ export default function AddPlanExerciseForm({ muscleGroups, onAdd, onAddMuscleGr
       finalGroup = newGroup.trim();
       onAddMuscleGroup(finalGroup);
     }
-    onAdd(trimmed, finalGroup, sets || 1, reps || 1);
+    onAdd(trimmed, finalGroup, sets || 1, reps || 1, weight || 0);
     reset();
   };
 
@@ -108,9 +110,10 @@ export default function AddPlanExerciseForm({ muscleGroups, onAdd, onAddMuscleGr
         </div>
       )}
 
-      <div className="mb-3 grid grid-cols-2 gap-2">
+      <div className="mb-3 grid grid-cols-3 gap-2">
         <NumberField label="Serie" value={sets} onChange={setSets} mode="numeric" />
-        <NumberField label="Powtórzenia" value={reps} onChange={setReps} mode="numeric" />
+        <NumberField label="Powt." value={reps} onChange={setReps} mode="numeric" />
+        <NumberField label="Kg" value={weight} onChange={setWeight} mode="decimal" />
       </div>
 
       <button
