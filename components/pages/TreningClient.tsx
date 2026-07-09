@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { db, uid, todayISO, ensureSettings } from "@/lib/db";
@@ -79,20 +79,27 @@ export default function TreningClient() {
     [scheduleSave, showToast]
   );
 
+  // Sort/filter past sessions once per render instead of once per exercise —
+  // findPrevious() gets called for every exercise card, and re-sorting the
+  // whole history each time gets noticeably slower once you have months of data.
+  const pastSessionsDesc = useMemo(
+    () =>
+      allSessions
+        .filter((s) => s.date < selectedDate)
+        .sort((a, b) => (a.date < b.date ? 1 : -1)),
+    [allSessions, selectedDate]
+  );
+
   const findPrevious = useCallback(
     (exerciseName: string) => {
-      const matches = allSessions
-        .filter((s) => s.date < selectedDate)
-        .sort((a, b) => (a.date < b.date ? 1 : -1));
-      for (const s of matches) {
-        const ex = s.exercises.find(
-          (e) => e.name.trim().toLowerCase() === exerciseName.trim().toLowerCase()
-        );
+      const needle = exerciseName.trim().toLowerCase();
+      for (const s of pastSessionsDesc) {
+        const ex = s.exercises.find((e) => e.name.trim().toLowerCase() === needle);
         if (ex && ex.sets.length > 0) return { date: s.date, sets: ex.sets };
       }
       return null;
     },
-    [allSessions, selectedDate]
+    [pastSessionsDesc]
   );
 
   const addExercise = (name: string, muscleGroup: string) => {
@@ -172,7 +179,10 @@ export default function TreningClient() {
         .filter((pe) => !existingNames.has(pe.name.trim().toLowerCase()))
         .map((pe, idx) => {
           const previous = findPrevious(pe.name);
-          const lastWeight = previous?.sets[previous.sets.length - 1]?.weight ?? 0;
+          // Prefer the weight actually lifted last time; if this exercise has
+          // never been logged before, fall back to the kg suggested in the plan.
+          const lastWeight =
+            previous?.sets[previous.sets.length - 1]?.weight ?? pe.suggestedWeight ?? 0;
           const sets: SetEntry[] = Array.from({ length: Math.max(1, pe.suggestedSets) }).map(
             () => ({ id: uid(), reps: pe.suggestedReps, weight: lastWeight })
           );
