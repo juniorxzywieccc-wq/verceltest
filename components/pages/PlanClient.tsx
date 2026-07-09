@@ -3,7 +3,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { Plus } from "lucide-react";
 import { db, uid, ensureSettings } from "@/lib/db";
-import type { PlanDay } from "@/lib/types";
+import type { PlanDay, PlanExercise } from "@/lib/types";
 import TopBar from "@/components/TopBar";
 import PlanDayCard from "@/components/plan/PlanDayCard";
 import { useSettings } from "@/lib/useSettings";
@@ -51,14 +51,16 @@ export default function PlanClient() {
     name: string,
     muscleGroup: string,
     sets: number,
-    reps: number
+    reps: number,
+    weight: number
   ) => {
-    const newExercise = {
+    const newExercise: PlanExercise = {
       id: uid(),
       name,
       muscleGroup,
       suggestedSets: sets,
       suggestedReps: reps,
+      suggestedWeight: weight,
       order: day.exercises.length,
     };
     db.planDays.put({ ...day, exercises: [...day.exercises, newExercise] });
@@ -69,6 +71,24 @@ export default function PlanClient() {
     db.planDays.put({
       ...day,
       exercises: day.exercises.filter((e) => e.id !== exerciseId),
+    });
+  };
+
+  const updateExercise = async (
+    dayId: string,
+    exerciseId: string,
+    patch: Partial<Pick<PlanExercise, "suggestedSets" | "suggestedReps" | "suggestedWeight">>
+  ) => {
+    // Re-read the day right before writing instead of reusing the `day`
+    // object captured in the render closure. suggestedSets/Reps/Weight each
+    // save on their own debounce timer now, so if two of them land close
+    // together, writing from a stale closure would silently lose whichever
+    // one committed first.
+    const current = await db.planDays.get(dayId);
+    if (!current) return;
+    await db.planDays.put({
+      ...current,
+      exercises: current.exercises.map((e) => (e.id === exerciseId ? { ...e, ...patch } : e)),
     });
   };
 
@@ -113,9 +133,12 @@ export default function PlanClient() {
             onMove={(dir) => moveDay(day, dir)}
             onRename={(name) => renameDay(day, name)}
             onDelete={() => deleteDay(day)}
-            onAddExercise={(name, group, sets, reps) => addExercise(day, name, group, sets, reps)}
+            onAddExercise={(name, group, sets, reps, weight) =>
+              addExercise(day, name, group, sets, reps, weight)
+            }
             onRemoveExercise={(exId) => removeExercise(day, exId)}
             onMoveExercise={(exId, dir) => moveExercise(day, exId, dir)}
+            onUpdateExercise={(exId, patch) => updateExercise(day.id, exId, patch)}
             muscleGroups={settings.muscleGroups}
             onAddMuscleGroup={addMuscleGroup}
           />
