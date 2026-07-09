@@ -21,18 +21,18 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  // `html` already has class="dark" set server-side in layout.tsx, so we can
+  // paint the whole app immediately with that assumption instead of blocking
+  // on an IndexedDB read first. If the saved theme turns out to be "light",
+  // we just flip the class right after — much less noticeable than a blank
+  // screen on every single app open.
   const [theme, setThemeState] = useState<Theme>("dark");
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      try {
-        const settings = await ensureSettings();
-        if (mounted) setThemeState(settings.theme);
-      } finally {
-        if (mounted) setReady(true);
-      }
+      const settings = await ensureSettings();
+      if (mounted) setThemeState(settings.theme);
     })();
     return () => {
       mounted = false;
@@ -65,11 +65,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
-
-  if (!ready) {
-    // Avoid a flash of wrong theme before settings load.
-    return null;
-  }
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
