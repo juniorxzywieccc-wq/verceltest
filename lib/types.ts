@@ -30,6 +30,7 @@ export interface PlanExercise {
   muscleGroup: MuscleGroup;
   suggestedSets: number;
   suggestedReps: number;
+  suggestedWeight?: number; // kg, optional — starsze plany/kopie zapasowe mogą go nie mieć
   order: number;
 }
 
